@@ -25,6 +25,10 @@ public class Launcher : MonoBehaviourPunCallbacks       // MonoBehaviourPunCallb
     public TMP_Text roomNameText;
     public TMP_Text playerNickNameText;
 
+    [Header("방 검색")]
+    public GameObject roomBrowserPanel;
+    public TMP_InputField roomBrowserNameText;
+
     [Header("Photon RoomInfo")]
     // 방을 생성했을 때 방의 이름을 데이터로 파싱하는 클래스 RoomButton
     private List<TMP_Text> allPlayerNames = new List<TMP_Text>();
@@ -111,9 +115,24 @@ public class Launcher : MonoBehaviourPunCallbacks       // MonoBehaviourPunCallb
         playerNickNameText.text = PhotonNetwork.NickName;
         
     }
+
+    public void JoinRoom()
+    {
+        //PhotonNetwork.JoinRoom(roomInfo.Name);
+        PhotonNetwork.JoinRoom(roomBrowserNameText.text);
+
+        CloseMenues();
+        loadingText.text = " 방 접속 중...";
+        loadingPanel.SetActive(true);
+    }
+    public override void OnRoomListUpdate(List<RoomInfo> roomList)
+    {
+        
+    }
     public void OpenRoomBrowser()
     {
         CloseMenues();
+        roomBrowserPanel.SetActive(true);
     }
     public void CloseRoomBrowser()
     {

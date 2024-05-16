@@ -5,6 +5,7 @@ using Photon.Pun;
 using Photon.Realtime;
 using TMPro;
 using UnityEditor;
+using UnityEngine.SceneManagement;
 
 
 
@@ -322,7 +323,7 @@ public class Launcher : MonoBehaviourPunCallbacks
 
     public void ButtonStartGame()
     {
-        // ScreenManager.Load("æ¿¿Ã∏ß");
+        SceneManager.LoadScene("New Scene");
     }
     public void ButtonJoinRandomRoom()
     {

@@ -49,9 +49,13 @@ public class PlayerController : MonoBehaviourPunCallbacks
             cam.gameObject.SetActive(false);
         }
     }
-   
 
-  
+    private void Start()
+    {
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
+    }
+
     void Update()
     {
         if(photonView.IsMine)
@@ -59,12 +63,17 @@ public class PlayerController : MonoBehaviourPunCallbacks
             // 플레이어 인풋
             CheckCollider();
             ButtonJump();
-            HandleView();
             HandleInput();
-            Move();
-            // Rigidbody AddForce(관성의 힘을 제어해주는 함수) - moveSpeed 만큼만 움직임
-            LimitSpeed();
+            HandleView();
+
+            PlayerAttack();
         }
+    }
+    private void FixedUpdate()
+    {
+        Move();
+        // Rigidbody AddForce(관성의 힘을 제어해주는 함수) - moveSpeed 만큼만 움직임
+        LimitSpeed();
     }
 
     private void HandleInput()
@@ -129,9 +138,25 @@ public class PlayerController : MonoBehaviourPunCallbacks
     }
     private void OnDrawGizmos()
     {
-        Gizmos.color = Color.yellow;
-        Gizmos.DrawLine(transform.position, -transform.up * groundCheckDistance);
+        Gizmos.color = Color.red;
+        Gizmos.DrawLine(transform.position, transform.position + (-transform.up * groundCheckDistance));
 
     }
+    #region Player Attack
 
+    private void PlayerAttack()
+    {
+        Shoot();
+    }
+    private void Shoot()
+    {
+        if (Input.GetMouseButtonDown(0))
+        {
+            Physics.Raycast(cam.transform.position, cam.transform.forward, out RaycastHit hit, 100f);
+
+            Debug.Log($"충돌한 오브젝트의 이름 :{hit.collider.gameObject.name}");
+        }
+    }
+
+    #endregion
 }

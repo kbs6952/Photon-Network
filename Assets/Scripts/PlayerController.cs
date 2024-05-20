@@ -54,6 +54,8 @@ public class PlayerController : MonoBehaviourPunCallbacks
     {
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
+        InitailizeAttackInfo();
+
     }
 
     void Update()
@@ -136,27 +138,60 @@ public class PlayerController : MonoBehaviourPunCallbacks
     {
         isGrounded = Physics.Raycast(transform.position, -transform.up, groundCheckDistance, groundLayer);
     }
+    #region Player Attack
+    public GameObject bulletImpact;         // 플레이어 공격의 피격 효과 인스턴스
+    public float fireCoolTIme = 0.1f;
+    private float fireCounter;
+    public float shootDistance = 1f;
+
+    private void PlayerAttack()
+    {
+        InputAttack();   
+    }
+    private void InputAttack()
+    {
+        fireCounter -= Time.deltaTime;
+        if (Input.GetMouseButtonDown(0))
+        {
+            if (fireCounter <= 0)
+                Shoot();
+        }
+    }
+
+    private void InitailizeAttackInfo()
+    {
+        fireCounter = fireCoolTIme;
+    }
+
+    private void Shoot()
+    {
+        if(Physics.Raycast(cam.transform.position, cam.transform.forward, out RaycastHit hit, 100f))
+        {
+            // Raycast가 hit한 지점에 object가 생성된다.
+            // 생성된 각도..
+            // 생성되는 위치가 오브젝트랑 겹쳐보이는 현상..
+            GameObject bulletObject = Instantiate(bulletImpact, hit.point + (hit.normal * 0.02f), Quaternion.LookRotation(hit.normal, Vector3.up));
+
+            // 일정 시간 후에 인스턴스한 오브젝트를 파괴한다.
+            Destroy(bulletObject, 1f);
+
+        }
+
+        Debug.Log($"충돌한 오브젝트의 이름 :{hit.collider.gameObject.name}");        // raycasthit에 의해 충돌한 지점에 collider가 있으면 반환해주는 코드
+        Debug.Log($"충돌한 지점의 Vector3를 반환한다 : {hit.point}");                // Raycast에 의해서 감지된 위치를 반환
+        Debug.Log($"카메라와 충돌한 지점 사이의 거리를 반환 : {hit.distance}");      // 두 벡터의 차이
+        Debug.Log($"충돌한 오브젝트의 법선(normal)을 반환 : {hit.normal}");          // cam - 충돌한 오브젝트 평면의 벡터 외적..normal
+
+        // 사격이 끝날 때, 사격 쿨타임을 리셋
+        fireCounter = fireCoolTIme;
+    }
+    #endregion
     private void OnDrawGizmos()
     {
         Gizmos.color = Color.red;
         Gizmos.DrawLine(transform.position, transform.position + (-transform.up * groundCheckDistance));
-
+        // 플레이어의 사격 범위를 파악하기 위한 기즈모 함수
+        Gizmos.color = Color.yellow;
+        Gizmos.DrawLine(cam.transform.position, cam.transform.forward * shootDistance);
     }
-    #region Player Attack
-
-    private void PlayerAttack()
-    {
-        Shoot();
-    }
-    private void Shoot()
-    {
-        if (Input.GetMouseButtonDown(0))
-        {
-            Physics.Raycast(cam.transform.position, cam.transform.forward, out RaycastHit hit, 100f);
-
-            Debug.Log($"충돌한 오브젝트의 이름 :{hit.collider.gameObject.name}");
-        }
-    }
-
-    #endregion
 }

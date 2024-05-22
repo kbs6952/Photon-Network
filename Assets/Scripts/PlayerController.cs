@@ -144,11 +144,18 @@ public class PlayerController : MonoBehaviourPunCallbacks
     private float fireCounter;
     public float shootDistance = 1f;
     public float bulletAliveTime = 0.1f;
-    private MuzzleFlash currentMuzzle;
     public bool isAutomatic;
+
+    [Header("오버히트 시스템")]
+    public float maxHeat = 10f, heatCount, heatPerShot;      // 열기를 저장하는 변수
+    public float coolRate, overHeatCoolRate;    // 열기를 식히기 위한 변수
+    private bool overHeated = false;            // maxHeat에 도달하면 true, heatCount <= 0 다시 false
 
     public Gun[] allGuns;
     private int currentGunIndex = 0;
+    private MuzzleFlash currentMuzzle;
+
+    public PlayerUI playerUI;
     private void PlayerAttack()
     {
         CoolDownFuntion();
@@ -166,50 +173,100 @@ public class PlayerController : MonoBehaviourPunCallbacks
                 currentGunIndex = 0;
             }
             SwitchGun();
+            playerUI.SetWeaponSlot(currentGunIndex);
         }
         else if(Input.GetAxisRaw("Mouse ScrollWheel")<0)
         {
             currentGunIndex--;
-            if(currentGunIndex < allGuns.Length)
+            if(currentGunIndex < 0)
             {
-                currentGunIndex = 3;
+                currentGunIndex = allGuns.Length-1;
             }
             SwitchGun();
+            playerUI.SetWeaponSlot(currentGunIndex);
         }
-            
 
-        
+        if (Input.GetKeyDown(KeyCode.Alpha1))
+        {
+            currentGunIndex = 0;
+        }
+        else if (Input.GetKeyDown(KeyCode.Alpha2))
+        {
+            currentGunIndex = 1;
+        }
+        else if (Input.GetKeyDown(KeyCode.Alpha3))
+        {
+            currentGunIndex = 2;
+        }
+        SwitchGun();
+        playerUI.SetWeaponSlot(currentGunIndex);
     }
+        
+   
 
     private void SwitchGun()
     {
         for(int i = 0; i< allGuns.Length; i++)
         {
+        // 올 건즈안에 있는 모든 오브젝트 비활성화
             allGuns[i].gameObject.SetActive(false);
         }
-        allGuns[currentGunIndex].gameObject.SetActive(true);
-        // 올 건즈안에 있는 모든 오브젝트 비활성화
         // allguns[현재인덱스] 오브젝트 활성화
+        allGuns[currentGunIndex].gameObject.SetActive(true);
 
         // 건을 매개 변수로 사용하는 gun정보 동기화 함수
-        
         SetGunAttribute(allGuns[currentGunIndex]);
     }
     private void SetGunAttribute(Gun gun) // Class -> Data
     {
         fireCoolTIme = gun.fireCoolTIme;
-        
+        isAutomatic = gun.isAutomatic;
+        currentMuzzle=gun.MuzzleFlash.GetComponent<MuzzleFlash>();
+        heatPerShot = gun.heatPerShot;
+
+        playerUI.currentWeaponSlider.maxValue = maxHeat;
     }
 
     private void CoolDownFuntion()
     {
         fireCounter -= Time.deltaTime;
         isAutomatic = allGuns[currentGunIndex].isAutomatic;
+        OverHeatedCoolDown();
     }
+    private void OverHeatedCoolDown()
+    {
+        // 현재 OverHeat 상태
+        if (overHeated)
+        {
+            heatCount -= overHeatCoolRate * Time.deltaTime;
 
+            if (heatCount <= 0)
+            {
+                heatCount = 0;
+                overHeated = false;
+                // UI에서 OverHeat 표시를 해제
+                playerUI.overHeatTextObject.SetActive(false);
+            }
+        }
+        else
+        {
+            heatCount -= coolRate * Time.deltaTime;
+            if (heatCount <= 0)
+                heatCount = 0;
+        }
+        playerUI.currentWeaponSlider.value = heatCount;
+
+
+        // 아닐 때
+    }
     private void InputAttack()
     {
-        if (Input.GetMouseButton(0))
+        if (Input.GetMouseButtonDown(0)&&!isAutomatic&&!overHeated)
+        {
+            if (fireCounter <= 0)
+                Shoot();
+        }
+        if(Input.GetMouseButton(0)&&isAutomatic&&!overHeated)
         {
             if (fireCounter <= 0)
                 Shoot();
@@ -221,13 +278,11 @@ public class PlayerController : MonoBehaviourPunCallbacks
         fireCounter = fireCoolTIme;
         currentGunIndex = 0;
         SwitchGun();
-
-
     }
 
     private void Shoot()
     {
-        if(Physics.Raycast(cam.transform.position, cam.transform.forward, out RaycastHit hit, 100f))
+        if(Physics.Raycast(cam.transform.position, cam.transform.forward, out RaycastHit hit, shootDistance))
         {
             // Raycast가 hit한 지점에 object가 생성된다.
             // 생성된 각도..
@@ -237,7 +292,6 @@ public class PlayerController : MonoBehaviourPunCallbacks
             currentMuzzle.gameObject.SetActive(true);
             // 일정 시간 후에 인스턴스한 오브젝트를 파괴한다.
             Destroy(bulletObject, bulletAliveTime);
-
         }
 
         //Debug.Log($"충돌한 오브젝트의 이름 :{hit.collider.gameObject.name}");        // raycasthit에 의해 충돌한 지점에 collider가 있으면 반환해주는 코드
@@ -247,7 +301,22 @@ public class PlayerController : MonoBehaviourPunCallbacks
 
         // 사격이 끝날 때, 사격 쿨타임을 리셋
         fireCounter = fireCoolTIme;
+        ShootHeatSystem();
     }
+
+    private void ShootHeatSystem()
+    {
+        heatCount += heatPerShot;
+
+        if (heatCount >= maxHeat)
+        {
+            heatCount = maxHeat;
+            overHeated = false;
+            playerUI.overHeatTextObject.SetActive(true);
+        }
+      
+    }
+
     #endregion
     private void OnDrawGizmos()
     {

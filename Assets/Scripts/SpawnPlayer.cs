@@ -1,5 +1,4 @@
 using Photon.Pun;
-using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -7,14 +6,23 @@ using UnityEngine;
 public class SpawnPlayer : MonoBehaviour
 {
     public GameObject playerPrefab;
-    public Transform spawnPosition;
+    public Transform[] spawnPosition;
+    private GameObject player;
     void Start()
     {
-        Spawn();
+        if (PhotonNetwork.IsConnected)
+        {
+            Spawn();
+        }
+    }    
+   private Transform GetSpawnPosition()
+    {
+        int randomIndex = Random.Range(0, spawnPosition.Length);
+        return spawnPosition[randomIndex];
     }
-
+    
     private void Spawn()
     {
-        PhotonNetwork.Instantiate(playerPrefab.name, spawnPosition.position,Quaternion.identity);
+        player = PhotonNetwork.Instantiate(playerPrefab.name, GetSpawnPosition().position, Quaternion.identity);
     }
 }

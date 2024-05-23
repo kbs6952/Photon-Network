@@ -14,7 +14,8 @@ public class Gun : MonoBehaviour
     public float fireCoolTIme = 0.1f;
     public GameObject MuzzleFlash;
 
-    public GunType gunType;
-    public float maxHeat;
+    private GunType gunType;
+    private float maxHeat;
     public float heatPerShot;
+    public float shootDistance;
 }

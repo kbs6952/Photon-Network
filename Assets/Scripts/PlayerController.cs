@@ -20,6 +20,7 @@ public class PlayerController : MonoBehaviourPunCallbacks
     private Vector2 mouseInput;
     public bool inverseMouse;                           // 체크되면 마우스 반전
     public Camera cam;                                  // Player 본인이 소유한 카메라
+    public GameObject hiddenObject;
 
     [Header("Jump")]
     [SerializeField] private float jumpPower = 5f;
@@ -47,6 +48,13 @@ public class PlayerController : MonoBehaviourPunCallbacks
         if (!photonView.IsMine)         // 내 플레이어가 아니면 카메라를 비활성화
         {
             cam.gameObject.SetActive(false);
+            hiddenObject.SetActive(false);
+        }
+        else
+        {
+            cam.gameObject.SetActive(true);
+            if (hiddenObject != null)
+                hiddenObject.SetActive(false);
         }
     }
 
@@ -142,7 +150,7 @@ public class PlayerController : MonoBehaviourPunCallbacks
     public GameObject bulletImpact;         // 플레이어 공격의 피격 효과 인스턴스
     public float fireCoolTIme = 0.1f;
     private float fireCounter;
-    public float shootDistance = 1f;
+    public float shootDistance = 10f;
     public float bulletAliveTime = 0.1f;
     public bool isAutomatic;
 
@@ -223,6 +231,7 @@ public class PlayerController : MonoBehaviourPunCallbacks
         isAutomatic = gun.isAutomatic;
         currentMuzzle=gun.MuzzleFlash.GetComponent<MuzzleFlash>();
         heatPerShot = gun.heatPerShot;
+        shootDistance=gun.shootDistance;
 
         playerUI.currentWeaponSlider.maxValue = maxHeat;
     }
@@ -264,12 +273,12 @@ public class PlayerController : MonoBehaviourPunCallbacks
         if (Input.GetMouseButtonDown(0)&&!isAutomatic&&!overHeated)
         {
             if (fireCounter <= 0)
-                Shoot();
+                photonView.RPC(nameof(ShootRPC), RpcTarget.AllBuffered);
         }
         if(Input.GetMouseButton(0)&&isAutomatic&&!overHeated)
         {
             if (fireCounter <= 0)
-                Shoot();
+                photonView.RPC(nameof(ShootRPC), RpcTarget.AllBuffered);
         }
     }
 
@@ -277,31 +286,42 @@ public class PlayerController : MonoBehaviourPunCallbacks
     {
         fireCounter = fireCoolTIme;
         currentGunIndex = 0;
+        
         SwitchGun();
     }
-
-    private void Shoot()
+    [PunRPC]
+    private void ShootRPC()
     {
-        if(Physics.Raycast(cam.transform.position, cam.transform.forward, out RaycastHit hit, shootDistance))
+        if (Physics.Raycast(cam.transform.position, cam.transform.forward, out RaycastHit hit, shootDistance))
         {
+            
+            // Tag를 이용해서.. player 태그 대상에게 이펙트 발생. 공격을 받았음,. 함수를
+            if(hit.collider.CompareTag("Enemy") &&hit.collider.GetComponent<PhotonView>().IsMine)
+            {
+                TakeDamage(10);
+            }
+            
+
+
             // Raycast가 hit한 지점에 object가 생성된다.
             // 생성된 각도..
             // 생성되는 위치가 오브젝트랑 겹쳐보이는 현상..
             GameObject bulletObject = Instantiate(bulletImpact, hit.point + (hit.normal * 0.02f), Quaternion.LookRotation(hit.normal, Vector3.up));
 
-            currentMuzzle.gameObject.SetActive(true);
             // 일정 시간 후에 인스턴스한 오브젝트를 파괴한다.
             Destroy(bulletObject, bulletAliveTime);
         }
-
-        //Debug.Log($"충돌한 오브젝트의 이름 :{hit.collider.gameObject.name}");        // raycasthit에 의해 충돌한 지점에 collider가 있으면 반환해주는 코드
-        Debug.Log($"충돌한 지점의 Vector3를 반환한다 : {hit.point}");                // Raycast에 의해서 감지된 위치를 반환
-        Debug.Log($"카메라와 충돌한 지점 사이의 거리를 반환 : {hit.distance}");      // 두 벡터의 차이
-        Debug.Log($"충돌한 오브젝트의 법선(normal)을 반환 : {hit.normal}");          // cam - 충돌한 오브젝트 평면의 벡터 외적..normal
-
+        currentMuzzle.gameObject.SetActive(true);
         // 사격이 끝날 때, 사격 쿨타임을 리셋
         fireCounter = fireCoolTIme;
+        // 오버히트값을 계산 함수
         ShootHeatSystem();
+    }
+
+    private void TakeDamage(int damage)
+    {
+        // 디버그로 받은 데미지 출력
+        Debug.Log($"{damage}만큼의 피해를 주었습니다.");
     }
 
     private void ShootHeatSystem()
@@ -314,7 +334,6 @@ public class PlayerController : MonoBehaviourPunCallbacks
             overHeated = false;
             playerUI.overHeatTextObject.SetActive(true);
         }
-      
     }
 
     #endregion

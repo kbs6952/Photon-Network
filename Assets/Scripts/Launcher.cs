@@ -323,7 +323,7 @@ public class Launcher : MonoBehaviourPunCallbacks
 
     public void ButtonStartGame()
     {
-        SceneManager.LoadScene("New Scene");
+        SceneManager.LoadScene(1);
     }
     public void ButtonJoinRandomRoom()
     {

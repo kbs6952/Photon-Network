@@ -5,7 +5,7 @@ using Photon.Pun;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class PlayerController : MonoBehaviourPunCallbacks
+public class PlayerController : MonoBehaviourPunCallbacks,IPunObservable
 {
     [Header("Move")]
     [SerializeField] private float moveSpeed = 5f;      // 플레이어 이동 속도
@@ -33,6 +33,13 @@ public class PlayerController : MonoBehaviourPunCallbacks
 
     [Header("photon Component")]
     PhotonView PV;
+
+    public bool isPlayerDead;
+
+    private void OnEnable()
+    {
+        PhotonSetup();
+    }
     private void Awake()
     {
         PhotonSetup();
@@ -49,36 +56,44 @@ public class PlayerController : MonoBehaviourPunCallbacks
         {
             cam.gameObject.SetActive(false);
             hiddenObject.SetActive(false);
+            gameObject.tag = "OtherPlayer";
         }
         else
         {
-            cam.gameObject.SetActive(true);
+            isPlayerDead = false;
+            playerUI.deathScreenObj.SetActive(true);
             if (hiddenObject != null)
-                hiddenObject.SetActive(false);
+                hiddenObject.gameObject.SetActive(false);
         }
     }
-
     private void Start()
     {
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
         InitailizeAttackInfo();
-
     }
-
     void Update()
     {
-        if(photonView.IsMine)
+        if (photonView.IsMine && isPlayerDead) return;      // 플레이어의 소유권이 나이고, 플레이어가 죽음 상태일때 코드를 멈춘다.
+       
+
+        
+
+        if (photonView.IsMine)
         {
             // 플레이어 인풋
             CheckCollider();
-            ButtonJump();
             HandleInput();
             HandleView();
 
             PlayerAttack();
         }
-    }
+        else
+        {
+            if ((transform.position - curPos).sqrMagnitude >= 100)
+                transform.position = curPos;
+        }
+    }        
     private void FixedUpdate()
     {
         Move();
@@ -170,7 +185,6 @@ public class PlayerController : MonoBehaviourPunCallbacks
         SelectGun();
         InputAttack();   
     }
-
     private void SelectGun()    // 마우스 휠 버튼을 이용해서 1~ n 까지 등록된 무기를 변경 기능
     {
         if(Input.GetAxisRaw("Mouse ScrollWheel")>0)
@@ -209,9 +223,6 @@ public class PlayerController : MonoBehaviourPunCallbacks
         SwitchGun();
         playerUI.SetWeaponSlot(currentGunIndex);
     }
-        
-   
-
     private void SwitchGun()
     {
         for(int i = 0; i< allGuns.Length; i++)
@@ -294,15 +305,14 @@ public class PlayerController : MonoBehaviourPunCallbacks
     {
         if (Physics.Raycast(cam.transform.position, cam.transform.forward, out RaycastHit hit, shootDistance))
         {
-            
             // Tag를 이용해서.. player 태그 대상에게 이펙트 발생. 공격을 받았음,. 함수를
-            if(hit.collider.CompareTag("Enemy") &&hit.collider.GetComponent<PhotonView>().IsMine)
-            {
-                TakeDamage(10);
-            }
+            //if (hit.collider.CompareTag("Enemy") && hit.collider.GetComponent<PhotonView>().IsMine)
+               //TakeDamageRPC(10);
             
-
-
+            if(hit.collider.CompareTag("OtherPlayer"))
+            {
+                hit.collider.gameObject.GetPhotonView().RPC(nameof(TakeDamageRPC), RpcTarget.AllBuffered,photonView.Owner.NickName,10);
+            }
             // Raycast가 hit한 지점에 object가 생성된다.
             // 생성된 각도..
             // 생성되는 위치가 오브젝트랑 겹쳐보이는 현상..
@@ -317,13 +327,24 @@ public class PlayerController : MonoBehaviourPunCallbacks
         // 오버히트값을 계산 함수
         ShootHeatSystem();
     }
-
-    private void TakeDamage(int damage)
+    [PunRPC]
+    private void TakeDamageRPC(string name,int damage)
     {
         // 디버그로 받은 데미지 출력
-        Debug.Log($"{damage}만큼의 피해를 주었습니다.");
-    }
+        if (photonView.IsMine)
+        {
+            Debug.Log($"데미지 입은 대상 : {name}이 {damage}만큼의 피해를 입음.");
+            int HP = 10;
+            isPlayerDead = HP - damage <= 0;
 
+            if(isPlayerDead)
+            {
+                playerUI.ShowDeathMassage(name);
+                SpawnPlayer.instance.Die();
+            }
+        }
+        
+    }
     private void ShootHeatSystem()
     {
         heatCount += heatPerShot;
@@ -335,7 +356,6 @@ public class PlayerController : MonoBehaviourPunCallbacks
             playerUI.overHeatTextObject.SetActive(true);
         }
     }
-
     #endregion
     private void OnDrawGizmos()
     {
@@ -344,5 +364,24 @@ public class PlayerController : MonoBehaviourPunCallbacks
         // 플레이어의 사격 범위를 파악하기 위한 기즈모 함수
         Gizmos.color = Color.yellow;
         Gizmos.DrawLine(cam.transform.position, cam.transform.forward * shootDistance);
+    }
+    private Vector3 curPos;
+    private float lag;
+    public void OnPhotonSerializeView(PhotonStream stream, PhotonMessageInfo info)
+    {
+        // 보낼 정보를 isWriting 작성하면, 그 정보를 isReading으로 읽어온다.
+        // 주의사항 : 반드시 보낼 변수의 순서를 똑같이 해줘야 한다.
+
+        if (stream.IsWriting)
+        {
+            stream.SendNext(transform.position);
+            stream.SendNext(rigidbody.velocity);
+        }
+        else if(stream.IsReading)
+        {
+            curPos = (Vector3)stream.ReceiveNext();
+            rigidbody.velocity = (Vector3)stream.ReceiveNext();
+        }
+        lag = Mathf.Abs((float)(PhotonNetwork.Time - info.timestamp));
     }
 }

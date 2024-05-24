@@ -107,7 +107,7 @@ RectTransform:
   m_Father: {fileID: 3341666279881759738}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
-  m_AnchorMax: {x: 0, y: 0}
+  m_AnchorMax: {x: 0, y: 1}
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 20, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
@@ -310,7 +310,7 @@ RectTransform:
   m_Father: {fileID: 5472981852961503836}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
-  m_AnchorMax: {x: 0, y: 0}
+  m_AnchorMax: {x: 0, y: 1}
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
@@ -726,11 +726,11 @@ GameObject:
   - component: {fileID: 4019421543683661775}
   m_Layer: 0
   m_Name: Player
-  m_TagString: Player
+  m_TagString: OtherPlayer
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &5195122122446400007
 Transform:
   m_ObjectHideFlags: 0
@@ -914,7 +914,7 @@ MonoBehaviour:
   groundCheck: {x: 0, y: 0, z: 0}
   groundCheckDistance: 1.2
   isGrounded: 0
-  bulletImpact: {fileID: 0}
+  bulletImpact: {fileID: 2111628188655600895, guid: 5eb869120892fc446a725356205b3f6a, type: 3}
   fireCoolTIme: 0.1
   shootDistance: 100
   bulletAliveTime: 0.4

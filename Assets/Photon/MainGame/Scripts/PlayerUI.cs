@@ -6,12 +6,22 @@ using UnityEngine.UI;
 
 public class PlayerUI : MonoBehaviour
 {
-    [Header("과열 tltmxpa UI")]
+    [Header("과열 시스템 UI")]
     public GameObject overHeatTextObject;   // Canvas UI에서 사용하지 않는 오브젝트는 비활성화 하는 것이 더 성능상 효율적이다.
     public Slider currentWeaponSlider;
 
     public WeaponSlot[] allWeaponSlots; 
     private int currentWeaponIndex;
+
+    [Header("죽음 화면")]
+    public GameObject deathScreenObj;
+    public TMP_Text deathText;
+
+    public void ShowDeathMassage(string killer)
+    {
+        deathScreenObj.SetActive(true);
+        deathText.text = $"플레이어가 {killer}에게 죽었습니다.";
+    }
 
     public void SetWeaponSlot(int weaponIndex)
     {

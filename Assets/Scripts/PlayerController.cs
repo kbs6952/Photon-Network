@@ -27,6 +27,7 @@ public class PlayerController : MonoBehaviourPunCallbacks,IPunObservable
     [SerializeField] private LayerMask groundLayer;
     [SerializeField] private Vector3 groundCheck;
     [SerializeField] private float groundCheckDistance = 5f;
+    [SerializeField] private Transform groundCheckPos;
     public bool isGrounded;
     private float yValue;
 
@@ -34,7 +35,11 @@ public class PlayerController : MonoBehaviourPunCallbacks,IPunObservable
     [Header("photon Component")]
     PhotonView PV;
 
+    [Header("Player")]
+    public int maxHP = 100;
+    private int currentHP;
     public bool isPlayerDead;
+    private Animator animator;
 
     private void OnEnable()
     {
@@ -49,6 +54,7 @@ public class PlayerController : MonoBehaviourPunCallbacks,IPunObservable
     {
         PV = GetComponent<PhotonView>();
         rigidbody = GetComponent<Rigidbody>();
+        animator = GetComponent<Animator>();
     }
     private void PhotonSetup()
     {
@@ -64,6 +70,9 @@ public class PlayerController : MonoBehaviourPunCallbacks,IPunObservable
             playerUI.deathScreenObj.SetActive(true);
             if (hiddenObject != null)
                 hiddenObject.gameObject.SetActive(false);
+
+            currentHP = maxHP;
+            playerUI.playerHpText.text = $"{currentHP} / {maxHP}";
         }
     }
     private void Start()
@@ -85,6 +94,7 @@ public class PlayerController : MonoBehaviourPunCallbacks,IPunObservable
             CheckCollider();
             HandleInput();
             HandleView();
+            HandleAnimation();
 
             PlayerAttack();
         }
@@ -100,7 +110,13 @@ public class PlayerController : MonoBehaviourPunCallbacks,IPunObservable
         // Rigidbody AddForce(관성의 힘을 제어해주는 함수) - moveSpeed 만큼만 움직임
         LimitSpeed();
     }
-
+    private void HandleAnimation()
+    {
+        //speed
+        animator.SetFloat("speed", rigidbody.velocity.magnitude);   // 0 ~ 1을 반환
+        //isGround
+        animator.SetBool("isGrounded", isGrounded);
+    }
     private void HandleInput()
     {
         // 캐릭터 이동 방향
@@ -155,11 +171,11 @@ public class PlayerController : MonoBehaviourPunCallbacks,IPunObservable
     { 
         rigidbody.velocity = new Vector3(rigidbody.velocity.x,0,rigidbody.velocity.z) ;
 
-        rigidbody.AddForce(transform.up*jumpPower,ForceMode.Impulse);
+        rigidbody.AddForce(groundCheckPos.up*jumpPower,ForceMode.Impulse);
     }
     private void CheckCollider()
     {
-        isGrounded = Physics.Raycast(transform.position, -transform.up, groundCheckDistance, groundLayer);
+        isGrounded = Physics.Raycast(groundCheckPos.position, -transform.up, groundCheckDistance, groundLayer);
     }
     #region Player Attack
     public GameObject bulletImpact;         // 플레이어 공격의 피격 효과 인스턴스
@@ -176,6 +192,7 @@ public class PlayerController : MonoBehaviourPunCallbacks,IPunObservable
 
     public Gun[] allGuns;
     private int currentGunIndex = 0;
+    private int currentGunPower;
     private MuzzleFlash currentMuzzle;
 
     public PlayerUI playerUI;
@@ -194,7 +211,7 @@ public class PlayerController : MonoBehaviourPunCallbacks,IPunObservable
             {
                 currentGunIndex = 0;
             }
-            SwitchGun();
+            SwitchGunRPC();
             playerUI.SetWeaponSlot(currentGunIndex);
         }
         else if(Input.GetAxisRaw("Mouse ScrollWheel")<0)
@@ -204,7 +221,7 @@ public class PlayerController : MonoBehaviourPunCallbacks,IPunObservable
             {
                 currentGunIndex = allGuns.Length-1;
             }
-            SwitchGun();
+            SwitchGunRPC();
             playerUI.SetWeaponSlot(currentGunIndex);
         }
 
@@ -220,10 +237,14 @@ public class PlayerController : MonoBehaviourPunCallbacks,IPunObservable
         {
             currentGunIndex = 2;
         }
-        SwitchGun();
+        SwitchGunRPC();
         playerUI.SetWeaponSlot(currentGunIndex);
     }
-    private void SwitchGun()
+
+
+
+    [PunRPC]
+    private void SwitchGunRPC()
     {
         for(int i = 0; i< allGuns.Length; i++)
         {
@@ -236,6 +257,11 @@ public class PlayerController : MonoBehaviourPunCallbacks,IPunObservable
         // 건을 매개 변수로 사용하는 gun정보 동기화 함수
         SetGunAttribute(allGuns[currentGunIndex]);
     }
+    private void SwitchGun()
+    {
+        //RPC 함수 호출
+        photonView.RPC(nameof(SwitchGunRPC), RpcTarget.AllBuffered);
+    }
     private void SetGunAttribute(Gun gun) // Class -> Data
     {
         fireCoolTIme = gun.fireCoolTIme;
@@ -243,6 +269,7 @@ public class PlayerController : MonoBehaviourPunCallbacks,IPunObservable
         currentMuzzle=gun.MuzzleFlash.GetComponent<MuzzleFlash>();
         heatPerShot = gun.heatPerShot;
         shootDistance=gun.shootDistance;
+        currentGunPower = gun.gunPower;
 
         playerUI.currentWeaponSlider.maxValue = maxHeat;
     }
@@ -298,7 +325,8 @@ public class PlayerController : MonoBehaviourPunCallbacks,IPunObservable
         fireCounter = fireCoolTIme;
         currentGunIndex = 0;
         
-        SwitchGun();
+
+        SwitchGunRPC();
     }
     [PunRPC]
     private void ShootRPC()
@@ -311,7 +339,7 @@ public class PlayerController : MonoBehaviourPunCallbacks,IPunObservable
             
             if(hit.collider.CompareTag("OtherPlayer"))
             {
-                hit.collider.gameObject.GetPhotonView().RPC(nameof(TakeDamageRPC), RpcTarget.AllBuffered,photonView.Owner.NickName,10);
+                hit.collider.gameObject.GetPhotonView().RPC(nameof(TakeDamageRPC), RpcTarget.AllBuffered,photonView.Owner.NickName,currentGunPower);
             }
             // Raycast가 hit한 지점에 object가 생성된다.
             // 생성된 각도..
@@ -321,7 +349,7 @@ public class PlayerController : MonoBehaviourPunCallbacks,IPunObservable
             // 일정 시간 후에 인스턴스한 오브젝트를 파괴한다.
             Destroy(bulletObject, bulletAliveTime);
         }
-        currentMuzzle.gameObject.SetActive(true);
+        
         // 사격이 끝날 때, 사격 쿨타임을 리셋
         fireCounter = fireCoolTIme;
         // 오버히트값을 계산 함수
@@ -334,14 +362,15 @@ public class PlayerController : MonoBehaviourPunCallbacks,IPunObservable
         if (photonView.IsMine)
         {
             Debug.Log($"데미지 입은 대상 : {name}이 {damage}만큼의 피해를 입음.");
-            int HP = 10;
-            isPlayerDead = HP - damage <= 0;
+            currentHP -= damage;
+            isPlayerDead = currentHP <= 0;
 
             if(isPlayerDead)
             {
                 playerUI.ShowDeathMassage(name);
                 SpawnPlayer.instance.Die();
             }
+            playerUI.playerHpText.text = $"{currentHP} / {maxHP}";
         }
         
     }
@@ -360,7 +389,7 @@ public class PlayerController : MonoBehaviourPunCallbacks,IPunObservable
     private void OnDrawGizmos()
     {
         Gizmos.color = Color.red;
-        Gizmos.DrawLine(transform.position, transform.position + (-transform.up * groundCheckDistance));
+        Gizmos.DrawLine(groundCheckPos.position, groundCheckPos.position + (-transform.up * groundCheckDistance));
         // 플레이어의 사격 범위를 파악하기 위한 기즈모 함수
         Gizmos.color = Color.yellow;
         Gizmos.DrawLine(cam.transform.position, cam.transform.forward * shootDistance);
@@ -376,11 +405,15 @@ public class PlayerController : MonoBehaviourPunCallbacks,IPunObservable
         {
             stream.SendNext(transform.position);
             stream.SendNext(rigidbody.velocity);
+            stream.SendNext(currentHP);
+            stream.SendNext(currentGunIndex);
         }
         else if(stream.IsReading)
         {
             curPos = (Vector3)stream.ReceiveNext();
             rigidbody.velocity = (Vector3)stream.ReceiveNext();
+            currentHP = (int)stream.ReceiveNext();
+            currentGunIndex = (int)stream.ReceiveNext();
         }
         lag = Mathf.Abs((float)(PhotonNetwork.Time - info.timestamp));
     }

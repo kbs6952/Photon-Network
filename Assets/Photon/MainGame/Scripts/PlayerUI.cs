@@ -17,6 +17,9 @@ public class PlayerUI : MonoBehaviour
     public GameObject deathScreenObj;
     public TMP_Text deathText;
 
+    [Header("플레이어")]
+    public TMP_Text playerHpText;
+
     public void ShowDeathMassage(string killer)
     {
         deathScreenObj.SetActive(true);

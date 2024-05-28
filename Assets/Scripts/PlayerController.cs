@@ -339,7 +339,8 @@ public class PlayerController : MonoBehaviourPunCallbacks,IPunObservable
             
             if(hit.collider.CompareTag("OtherPlayer"))
             {
-                hit.collider.gameObject.GetPhotonView().RPC(nameof(TakeDamageRPC), RpcTarget.AllBuffered,photonView.Owner.NickName,currentGunPower);
+                hit.collider.gameObject.GetPhotonView().RPC(nameof(TakeDamageRPC), RpcTarget.AllBuffered, photonView.Owner.NickName, 
+                    currentGunPower, PhotonNetwork.LocalPlayer.ActorNumber);
             }
             // Raycast가 hit한 지점에 object가 생성된다.
             // 생성된 각도..
@@ -356,7 +357,7 @@ public class PlayerController : MonoBehaviourPunCallbacks,IPunObservable
         ShootHeatSystem();
     }
     [PunRPC]
-    private void TakeDamageRPC(string name,int damage)
+    private void TakeDamageRPC(string name,int damage, int actorNumber)
     {
         // 디버그로 받은 데미지 출력
         if (photonView.IsMine)
@@ -367,6 +368,7 @@ public class PlayerController : MonoBehaviourPunCallbacks,IPunObservable
 
             if(isPlayerDead)
             {
+                MatchManager.Instance.UpdateStatsSend(actorNumber, 0, 1);
                 playerUI.ShowDeathMassage(name);
                 SpawnPlayer.instance.Die();
             }

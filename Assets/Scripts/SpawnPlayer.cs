@@ -39,6 +39,9 @@ public class SpawnPlayer : MonoBehaviour
     }
     public void Die()
     {
+        // 나의 포톤뷰.Actor Number, Id에 접근을 해서.. 내 플레이어 데이터가 1데스를 하였다.
+        MatchManager.Instance.UpdateStatsSend(PhotonNetwork.LocalPlayer.ActorNumber, 1, 1);
+
         StartCoroutine(nameof(DieCorutin));
     }
 

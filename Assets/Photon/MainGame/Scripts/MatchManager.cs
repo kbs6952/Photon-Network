@@ -4,6 +4,7 @@ using Photon.Realtime;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using TMPro;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -29,12 +30,27 @@ public class MatchManager : MonoBehaviourPunCallbacks, IOnEventCallback
         ListPlayer,
         UpdateStats,
     }
+    public enum GameState
+    {
+        Waiting,
+        Playing,
+        Ending,
+    }
 
     private EventCodes eventCodes;
 
     [SerializeField] List<PlayerInfo> allPlayers = new List<PlayerInfo>();
     private int index;          // 포톤뷰.이즈마인 나 자신의 인덱스번호를 저장.
 
+    [Header("리더 보드")]
+    public GameObject LeaderBoardPanel;
+    public LeaderBoardPlayer instantLeaderBoard;
+    private List<LeaderBoardPlayer> leaderBoardPlayers = new List<LeaderBoardPlayer>();
+
+    [Header("엔딩")]
+    public int killToWIn = 1;
+    public float waitForEnding = 3f;
+    public GameState gameState = GameState.Waiting;
     public override void OnEnable()
     {
         PhotonNetwork.AddCallbackTarget(this);
@@ -53,10 +69,23 @@ public class MatchManager : MonoBehaviourPunCallbacks, IOnEventCallback
         else
         {
             NewPlayerSend(PhotonNetwork.NickName);
-            
+
         }
     }
-
+    private void Update()
+    {
+        if (Input.GetKeyDown(KeyCode.Tab))
+        {
+            if (LeaderBoardPanel.activeInHierarchy)
+            {
+                LeaderBoardPanel.SetActive(false);
+            }
+            else
+            {
+                ShowLeaderBoard();
+            }
+        }
+    }
     public void OnEvent(EventData photonEvent)
     {
         if (photonEvent.Code < 200)
@@ -81,7 +110,7 @@ public class MatchManager : MonoBehaviourPunCallbacks, IOnEventCallback
             }
         }
     }
-    public void NewPlayerSend(string userName) 
+    public void NewPlayerSend(string userName)
     {
         object[] playerInfo = new object[4] { userName, PhotonNetwork.LocalPlayer.ActorNumber, 0, 0 };
 
@@ -101,13 +130,15 @@ public class MatchManager : MonoBehaviourPunCallbacks, IOnEventCallback
         allPlayers.Add(playerInfo);
 
         ListPlayerSend();
-        UpdateStatsDisPlay();
+
     }
     public void ListPlayerSend()    // 마스터 클라이언트가 기억하고 있는 정보를 다른 클라이언트한테 뿌려주는 기능. PlayerInfo 패킷화해서 보내면된다.
     {
         object[] packet = new object[allPlayers.Count];
 
-        for (int i = 0; i < allPlayers.Count; i++) 
+        packet[0] = gameState;
+
+        for (int i = 0; i < allPlayers.Count; i++)
         {
             object[] info = new object[4];
 
@@ -116,7 +147,7 @@ public class MatchManager : MonoBehaviourPunCallbacks, IOnEventCallback
             info[2] = allPlayers[i].kill;
             info[3] = allPlayers[i].death;
 
-            packet[i] = info;
+            packet[i+1] = info;
         }
         RaiseEventOptions raiseEventOptions = new RaiseEventOptions { Receivers = ReceiverGroup.All };
         SendOptions sendOptions = new SendOptions { Reliability = true };
@@ -124,11 +155,13 @@ public class MatchManager : MonoBehaviourPunCallbacks, IOnEventCallback
 
         PhotonNetwork.RaiseEvent((byte)EventCodes.ListPlayer, packet, raiseEventOptions, sendOptions);
     }
-    public void ListPlayerReceive(object[] data) 
+    public void ListPlayerReceive(object[] data)
     {
         allPlayers.Clear();     // 기존 데이터를 덮어쓰기위해 지워줌
 
-        for(int i = 0; i<data.Length; i++)
+        gameState = (GameState)data[0];
+
+        for (int i = 1; i < data.Length; i++)
         {
             object[] info = (object[])data[i];
 
@@ -136,13 +169,16 @@ public class MatchManager : MonoBehaviourPunCallbacks, IOnEventCallback
 
             allPlayers.Add(player);
 
-            if(PhotonNetwork.LocalPlayer.ActorNumber == player.actor)
+            if (PhotonNetwork.LocalPlayer.ActorNumber == player.actor)
             {
-                index = i;
+                index = i-1;
+                UpdateStatsDisPlay();
             }
         }
+
+        StateCheck();
     }
-    public void UpdateStatsSend(int actorIndex,int statToUpdate,int amountToChange)
+    public void UpdateStatsSend(int actorIndex, int statToUpdate, int amountToChange)
     {
         object[] packet = new object[] { actorIndex, statToUpdate, amountToChange };
         RaiseEventOptions raiseEventOptions = new RaiseEventOptions { Receivers = ReceiverGroup.All };
@@ -156,7 +192,7 @@ public class MatchManager : MonoBehaviourPunCallbacks, IOnEventCallback
         int stat = (int)data[1];
         int amount = (int)data[2];
 
-        for(int i=0; i< allPlayers.Count;i++)
+        for (int i = 0; i < allPlayers.Count; i++)
         {
             if (allPlayers[i].actor == actor)
             {
@@ -169,15 +205,20 @@ public class MatchManager : MonoBehaviourPunCallbacks, IOnEventCallback
                         allPlayers[i].death += amount;
                         break;
                 }
-            }
-            if(i==index)
-            {
-                // UpdateView Kill, Death Text 변화하는 함수
-                UpdateStatsDisPlay();
-            }
-            break;
+                if (i == index)
+                {
+                    // UpdateView Kill, Death Text 변화하는 함수
+                    UpdateStatsDisPlay();
+                }
+                if (LeaderBoardPanel.activeInHierarchy)
+                {
+                    ShowLeaderBoard();
+                }
 
+                break;
+            }
         }
+        ScoreCheck();
     }
 
     private void UpdateStatsDisPlay()
@@ -192,12 +233,117 @@ public class MatchManager : MonoBehaviourPunCallbacks, IOnEventCallback
             killText.text = $"킬 수 : 0";
             deatText.text = $"데스 수 : 0";
         }
-        
+
     }
+    void ShowLeaderBoard()
+    {
+        // 리더보드판넬 활성화
+        LeaderBoardPanel.SetActive(false);
+        foreach (var leaderBoardPlayer in leaderBoardPlayers)
+        {
+            Destroy(leaderBoardPlayer.gameObject);
+        }
+        leaderBoardPlayers.Clear();
+        //데이터갱신
+        instantLeaderBoard.gameObject.SetActive(false);
+
+        List<PlayerInfo> sorted = SortPlayers(allPlayers);
+
+        foreach (var player in sorted)
+        {
+            // 리더보드 플레이어 클래스 <- 올 플레이어즈 안에 있는 데이터
+            LeaderBoardPlayer leaderBoardPlayer = Instantiate(instantLeaderBoard, instantLeaderBoard.transform.parent);
+            // 리더보드 플레이어 멤버 함수. Set 플레이어인포 실행
+            leaderBoardPlayer.SetPlayerInfo(player.name, player.kill, player.death);
+            // 리더보드 플레이어 객체를 리더보드 플레이어즈 리스트 추가.
+            leaderBoardPlayers.Add(leaderBoardPlayer);
+            // 객체를 SetActive 활성화한다.
+            leaderBoardPlayer.gameObject.SetActive(true);
+        }
+    }
+    private List<PlayerInfo> SortPlayers(List<PlayerInfo> allPlayers)
+    {
+        List<PlayerInfo> sortedList = new List<PlayerInfo>();
+
+        // 받아온 리스트를 킬 수가 높은 순서대로 정렬한다.
+        while (sortedList.Count < allPlayers.Count)
+        {
+            PlayerInfo selectedPlayer = allPlayers[0];
+            int highest = -1;
+
+            foreach (PlayerInfo player in allPlayers)
+            {
+                if (!sortedList.Contains(player))
+                {
+                    selectedPlayer = player;
+                    highest = player.kill;
+                }
+            }
+            sortedList.Add(selectedPlayer);
+        }
+
+        return sortedList;
+    }
+    #region 매칭종료
+
+    void ScoreCheck()
+    {
+        bool isExistWinner = false;
+
+        foreach (var player in allPlayers)
+        {
+            if (player.kill >= killToWIn && killToWIn > 0)
+            {
+                isExistWinner = true;
+                break;
+            }
+        }
+        // 체크한 유저가 있다면, 모든 유저에게 게임이 종료되었음을 알린다.
+        if (isExistWinner)
+        {
+            if (PhotonNetwork.IsMasterClient && gameState != GameState.Ending)
+            {
+                gameState = GameState.Ending;
+                ListPlayerSend();
+            }
+        }
+        StartCoroutine(nameof(MatchEndCo));
+    }
+    void StateCheck()
+    {
+        if(gameState == GameState.Ending)
+        {
+            EndMatch();
+        }
+    }
+    void EndMatch()
+    {
+        gameState = GameState.Ending;
+
+        if (PhotonNetwork.IsMasterClient)
+        {
+            //PhotonNetwork.DestroyAll();
+        }
+        ShowLeaderBoard();
+
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
+    }
+    private IEnumerator MatchEndCo()
+    {
+        yield return new WaitForSeconds(waitForEnding);
+        PhotonNetwork.LeaveRoom(); 
+    }
+    public override void OnLeftRoom()
+    {
+        PhotonNetwork.LoadLevel(0);
+    }
+
+    #endregion
 }
 
 
-    [System.Serializable]
+[System.Serializable]
 public class PlayerInfo
 {
     public string name;

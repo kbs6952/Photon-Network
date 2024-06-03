@@ -1196,6 +1196,7 @@ MonoBehaviour:
   isGrounded: 0
   maxHP: 100
   isPlayerDead: 0
+  allSkins: []
   bulletImpact: {fileID: 2111628188655600895, guid: 5eb869120892fc446a725356205b3f6a, type: 3}
   fireCoolTIme: 0.1
   shootDistance: 100
@@ -1697,7 +1698,7 @@ Camera:
     height: 1
   near clip plane: 0.3
   far clip plane: 1000
-  field of view: 60
+  field of view: 89.2
   orthographic: 0
   orthographic size: 5
   m_Depth: 0
@@ -2551,7 +2552,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &4401095208588905616
 Transform:
   m_ObjectHideFlags: 0
@@ -3039,6 +3040,7 @@ MonoBehaviour:
   heatPerShot: 1.5
   shootDistance: 10
   gunPower: 30
+  gunFOV: 0
 --- !u!4 &6212378081772291932 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 4765272294121392, guid: 6993fd0e7237f024e80f00288eb435cd, type: 3}
@@ -3139,6 +3141,7 @@ MonoBehaviour:
   heatPerShot: 2
   shootDistance: 9
   gunPower: 15
+  gunFOV: 0
 --- !u!1001 &7549381149608906139
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -3296,6 +3299,7 @@ MonoBehaviour:
   heatPerShot: 1
   shootDistance: 6
   gunPower: 10
+  gunFOV: 0
 --- !u!4 &9202332906397130173 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 4973641411836888, guid: e4b5e619f4a1e5844b32eec0d702d1b6, type: 3}

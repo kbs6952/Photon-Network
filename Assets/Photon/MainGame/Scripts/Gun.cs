@@ -20,4 +20,6 @@ public class Gun : MonoBehaviour
     public float shootDistance;
 
     public int gunPower;
+    public int gunFOV;
+
 }

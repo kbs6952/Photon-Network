@@ -41,6 +41,9 @@ public class PlayerController : MonoBehaviourPunCallbacks,IPunObservable
     public bool isPlayerDead;
     private Animator animator;
 
+    public GameObject[] allSkins;           // 캐릭터의 외형 변경
+    private int currentSkinIndex;
+
     private void OnEnable()
     {
         PhotonSetup();
@@ -58,18 +61,26 @@ public class PlayerController : MonoBehaviourPunCallbacks,IPunObservable
     }
     private void PhotonSetup()
     {
+        currentSkinIndex = UnityEngine.Random.RandomRange(0, allSkins.Length);
+
+        foreach(var skin in allSkins)
+        {
+            skin.SetActive(false);
+        }
+
+        
+
         if (!photonView.IsMine)         // 내 플레이어가 아니면 카메라를 비활성화
         {
             cam.gameObject.SetActive(false);
             hiddenObject.SetActive(false);
             gameObject.tag = "OtherPlayer";
+            hiddenObject.SetActive(true);
         }
         else
         {
             isPlayerDead = false;
             playerUI.deathScreenObj.SetActive(true);
-            if (hiddenObject != null)
-                hiddenObject.gameObject.SetActive(false);
 
             currentHP = maxHP;
             playerUI.playerHpText.text = $"{currentHP} / {maxHP}";
@@ -85,9 +96,6 @@ public class PlayerController : MonoBehaviourPunCallbacks,IPunObservable
     {
         if (photonView.IsMine && isPlayerDead) return;      // 플레이어의 소유권이 나이고, 플레이어가 죽음 상태일때 코드를 멈춘다.
        
-
-        
-
         if (photonView.IsMine)
         {
             // 플레이어 인풋
@@ -95,8 +103,8 @@ public class PlayerController : MonoBehaviourPunCallbacks,IPunObservable
             HandleInput();
             HandleView();
             HandleAnimation();
-
             PlayerAttack();
+            ZoomIn();
         }
         else
         {
@@ -193,6 +201,7 @@ public class PlayerController : MonoBehaviourPunCallbacks,IPunObservable
     public Gun[] allGuns;
     private int currentGunIndex = 0;
     private int currentGunPower;
+    private int currentGunFOV;
     private MuzzleFlash currentMuzzle;
 
     public PlayerUI playerUI;
@@ -200,8 +209,22 @@ public class PlayerController : MonoBehaviourPunCallbacks,IPunObservable
     {
         CoolDownFuntion();
         SelectGun();
-        InputAttack();   
+        InputAttack();
+        
     }
+
+    private void ZoomIn()
+    {
+        if (Input.GetMouseButton(1))
+        {
+            cam.fieldOfView = Mathf.Lerp(cam.fieldOfView, currentGunFOV, Time.deltaTime * 5);
+        }
+        else
+        {
+            cam.fieldOfView = Mathf.Lerp(cam.fieldOfView,60,Time.deltaTime * 5);
+        }
+    }
+
     private void SelectGun()    // 마우스 휠 버튼을 이용해서 1~ n 까지 등록된 무기를 변경 기능
     {
         if(Input.GetAxisRaw("Mouse ScrollWheel")>0)
@@ -270,6 +293,7 @@ public class PlayerController : MonoBehaviourPunCallbacks,IPunObservable
         heatPerShot = gun.heatPerShot;
         shootDistance=gun.shootDistance;
         currentGunPower = gun.gunPower;
+        currentGunFOV = gun.gunFOV;
 
         playerUI.currentWeaponSlider.maxValue = maxHeat;
     }
